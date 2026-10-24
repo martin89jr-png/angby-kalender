@@ -12,7 +12,7 @@ function setStatus(t){$("status").textContent=t}
 function localLoad(){try{return JSON.parse(localStorage.getItem(localKey)||"[]")}catch{return []}}
 function saveLocal(){localStorage.setItem(localKey,JSON.stringify(tasks))}
 function forDay(d){return tasks.filter(t=>t.date===iso(d))}
-function render(){renderCalendar();renderTasks();$("dateTitle").textContent=fmt(selected);$("date").value=iso(selected);renderDaySummary()} 
+function render(){renderCalendar();renderTasks();$("dateTitle").textContent=fmt(selected);renderDaySummary()} 
 function renderDaySummary(){
   const arr=forDay(selected).slice().sort((a,b)=>(a.time||"").localeCompare(b.time||""));
   const done=arr.filter(t=>t.done).length;
@@ -50,7 +50,7 @@ function renderCalendar(){
       cats.forEach(cat=>{const dot=document.createElement("i");dot.className=categoryClass(cat);dot.setAttribute("aria-label",cat);dots.append(dot)});
       b.append(dots);
     }
-    b.onclick=()=>{selected=d;render()};
+    b.onclick=()=>{selected=d;$("date").value=iso(selected);render()};
     grid.append(b);
   }
 }
@@ -138,15 +138,15 @@ function checkReminders(){if(!tasks.length)return;const now=new Date(),day=iso(n
 $("enableNotifications").onclick=async()=>{if(!("Notification" in window)){alert("Den här webbläsaren stöder inte systemnotiser. Prova Chrome eller Edge.");return}try{const permission=await Notification.requestPermission();if(permission==="granted"){$("enableNotifications").textContent="Notiser aktiverade";playReminderSound();alert("Notiser aktiverade. Ljud och notiser fungerar medan kalendern är öppen.")}else alert("Notiser tilläts inte. Du kan ändra behörigheten i webbläsarens webbplatsinställningar.")}catch(e){alert("Kunde inte aktivera notiser: "+e.message)}};
 async function connect(c){if(!window.supabase){setStatus("Supabase-biblioteket kunde inte laddas");return}try{client=window.supabase.createClient(c.url,c.key);let {data,error}=await client.auth.getSession();if(error)throw error;user=data.session?.user||null;client.auth.onAuthStateChange((_e,s)=>{user=s?.user||null;refreshAuth();if(user){loadRemote();subscribeRealtime()}else{if(realtimeChannel){client.removeChannel(realtimeChannel);realtimeChannel=null}tasks=localLoad();render();setStatus("Utloggad")}});refreshAuth();if(user){await loadRemote();subscribeRealtime()}else{tasks=localLoad();render();setStatus("Ansluten – logga in")}}catch(e){client=null;setStatus("Anslutningsfel");console.error(e)}}
 function refreshAuth(){$("auth").textContent=user?"Logga ut":"Logga in";if(user)setStatus("Inloggad")}
-$("taskForm").onsubmit=async e=>{e.preventDefault();let t=buildTask();if(!t.title||!t.date)return;if(await saveTask(t)){clearForm();$("message").textContent="Uppgiften är sparad."}};
+$("taskForm").onsubmit=async e=>{e.preventDefault();let t=buildTask();if(!t.title||!t.date)return;if(await saveTask(t)){let parts=t.date.split("-").map(Number);selected=new Date(parts[0],parts[1]-1,parts[2]);year=selected.getFullYear();month=selected.getMonth();clearForm();render();$("date").value=iso(selected);$("message").textContent="Uppgiften är sparad."}};
 $("clear").onclick=clearForm;$("new").onclick=()=>{clearForm();$("date").value=iso(selected);$("name").focus()};
 $("prev").onclick=()=>{month--;if(month<0){month=11;year--}renderCalendar()};$("next").onclick=()=>{month++;if(month>11){month=0;year++}renderCalendar()};
-$("today").onclick=()=>{selected=new Date();selected=new Date(selected.getFullYear(),selected.getMonth(),selected.getDate());year=selected.getFullYear();month=selected.getMonth();render()};
+$("today").onclick=()=>{selected=new Date();selected=new Date(selected.getFullYear(),selected.getMonth(),selected.getDate());year=selected.getFullYear();month=selected.getMonth();$("date").value=iso(selected);render()};
 $("settings").onclick=()=>{let c;try{c=JSON.parse(localStorage.getItem(configKey)||"null")}catch{}if(c){$("url").value=c.url;$("key").value=c.key}$("settingsDialog").showModal()};
 $("settingsForm").onsubmit=async e=>{e.preventDefault();let url=$("url").value.trim().replace(/\/$/,""),key=$("key").value.trim();if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)){$("settingsMessage").textContent="Kontrollera Project URL.";return}localStorage.setItem(configKey,JSON.stringify({url,key}));await connect({url,key});$("settingsDialog").close()};
 $("auth").onclick=async()=>{if(user&&client){await client.auth.signOut();user=null;tasks=localLoad();render();refreshAuth()}else if(!client){$("settingsDialog").showModal()}else{$("loginDialog").showModal()}};
 $("signup").onclick=()=>{signupMode=!signupMode;$("loginTitle").textContent=signupMode?"Skapa konto":"Logga in";$("loginSubmit").textContent=signupMode?"Skapa konto":"Logga in";$("signup").textContent=signupMode?"Tillbaka till inloggning":"Skapa nytt konto"};
 $("loginForm").onsubmit=async e=>{e.preventDefault();let email=$("email").value,password=$("password").value;let r=signupMode?await client.auth.signUp({email,password}):await client.auth.signInWithPassword({email,password});$("loginMessage").textContent=r.error?r.error.message:(signupMode&&!r.data.session?"Kontot skapades. Kontrollera din e-post om bekräftelse krävs.":"");if(!r.error&&(!signupMode||r.data.session))$("loginDialog").close()};
 let installPrompt;$("install").onclick=async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$("install").hidden=true}};window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("install").hidden=false});
-tasks=localLoad();render();let saved;try{saved=JSON.parse(localStorage.getItem(configKey)||"null")}catch{}if(saved)connect(saved);let lastObservedToday=iso(new Date());setInterval(()=>{let n=new Date(),todayKey=iso(n);if(todayKey!==lastObservedToday){lastObservedToday=todayKey;selected=new Date(n.getFullYear(),n.getMonth(),n.getDate());year=selected.getFullYear();month=selected.getMonth();render()}checkReminders();if(client&&user&&Date.now()-lastAutoSync>=2500){lastAutoSync=Date.now();loadRemote({quiet:true})}},2000);
+tasks=localLoad();$("date").value=iso(selected);render();let saved;try{saved=JSON.parse(localStorage.getItem(configKey)||"null")}catch{}if(saved)connect(saved);let lastObservedToday=iso(new Date());setInterval(()=>{let n=new Date(),todayKey=iso(n);if(todayKey!==lastObservedToday){lastObservedToday=todayKey;selected=new Date(n.getFullYear(),n.getMonth(),n.getDate());year=selected.getFullYear();month=selected.getMonth();render()}checkReminders();if(client&&user&&Date.now()-lastAutoSync>=2500){lastAutoSync=Date.now();loadRemote({quiet:true})}},2000);
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(console.warn);
