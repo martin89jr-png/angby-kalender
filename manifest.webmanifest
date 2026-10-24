@@ -1,0 +1,16 @@
+{
+  "name": "Min dagskalender – Ängby SK",
+  "short_name": "Ängby Kalender",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f3ed",
+  "theme_color": "#641c32",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
