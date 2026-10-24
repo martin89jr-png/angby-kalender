@@ -29,7 +29,35 @@ function fill(t){$("id").value=t.id;$("name").value=t.title;$("date").value=t.da
 function buildTask(){let id=$("id").value||crypto.randomUUID(),old=tasks.find(t=>t.id===id);return {id,user_id:user?.id||null,date:$("date").value,title:$("name").value.trim(),time:$("time").value||null,priority:$("priority").value,reminder:$("reminder").value,done:old?.done||false,checklist:$("checklist").value.split("\n").map(s=>s.trim()).filter(Boolean).map(text=>({text,done:old?.checklist?.find(x=>x.text===text)?.done||false}))}}
 async function saveTask(t){if(client&&user){let row={...t,user_id:user.id};let {error}=await client.from("calendar_tasks").upsert(row);if(error){$("message").textContent="Kunde inte spara online: "+error.message;return false}await loadRemote();return true}tasks=tasks.filter(x=>x.id!==t.id).concat(t);saveLocal();render();setStatus("Sparat lokalt – logga in för synk");return true}
 async function update(id,changes){let t=tasks.find(x=>x.id===id);if(!t)return;let next={...t,...changes};if(client&&user){await saveTask(next)}else{tasks=tasks.map(x=>x.id===id?next:x);saveLocal();render()}}
-async function removeTask(t){if(!confirm(`Ta bort "${t.title}"?`))return;if(client&&user){let {error}=await client.from("calendar_tasks").delete().eq("id",t.id);if(error){alert("Kunde inte ta bort: "+error.message);return}await loadRemote()}else{tasks=tasks.filter(x=>x.id!==t.id);saveLocal();render()}}
+async function removeTask(t){
+  if(!confirm(`Ta bort "${t.title}"?`)) return;
+  if(client && user){
+    const { data, error } = await client
+      .from("calendar_tasks")
+      .delete()
+      .eq("id", t.id)
+      .eq("user_id", user.id)
+      .select("id");
+    if(error){
+      alert("Kunde inte ta bort från databasen: " + error.message);
+      console.error("Supabase delete error:", error);
+      return;
+    }
+    if(!data || data.length === 0){
+      alert("Uppgiften togs inte bort i databasen. Kontrollera att du är inloggad med rätt konto och att Supabase tillåter borttagning.");
+      await loadRemote();
+      return;
+    }
+    tasks = tasks.filter(x => x.id !== t.id);
+    saveLocal();
+    render();
+    await loadRemote();
+  } else {
+    tasks = tasks.filter(x => x.id !== t.id);
+    saveLocal();
+    render();
+  }
+}
 async function loadRemote({quiet=false}={}){if(!client||!user)return;if(!quiet)setStatus("Synkroniserar…");let {data,error}=await client.from("calendar_tasks").select("*").order("date").order("time");if(error){if(!quiet)setStatus("Databasfel");console.error(error);$("message").textContent="Kontrollera att du har kört supabase/schema.sql.";return}tasks=data||[];saveLocal();render();setStatus("Synkroniserad")}
 
 function subscribeRealtime() {
@@ -87,5 +115,5 @@ $("auth").onclick=async()=>{if(user&&client){await client.auth.signOut();user=nu
 $("signup").onclick=()=>{signupMode=!signupMode;$("loginTitle").textContent=signupMode?"Skapa konto":"Logga in";$("loginSubmit").textContent=signupMode?"Skapa konto":"Logga in";$("signup").textContent=signupMode?"Tillbaka till inloggning":"Skapa nytt konto"};
 $("loginForm").onsubmit=async e=>{e.preventDefault();let email=$("email").value,password=$("password").value;let r=signupMode?await client.auth.signUp({email,password}):await client.auth.signInWithPassword({email,password});$("loginMessage").textContent=r.error?r.error.message:(signupMode&&!r.data.session?"Kontot skapades. Kontrollera din e-post om bekräftelse krävs.":"");if(!r.error&&(!signupMode||r.data.session))$("loginDialog").close()};
 let installPrompt;$("install").onclick=async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$("install").hidden=true}};window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("install").hidden=false});
-tasks=localLoad();render();let saved;try{saved=JSON.parse(localStorage.getItem(configKey)||"null")}catch{}if(saved)connect(saved);setInterval(()=>{let n=new Date();if(iso(n)!==iso(selected)){selected=new Date(n.getFullYear(),n.getMonth(),n.getDate());year=selected.getFullYear();month=selected.getMonth();render()}checkReminders();if(client&&user&&Date.now()-lastAutoSync>=15000){lastAutoSync=Date.now();loadRemote({quiet:true})}},10000);
+tasks=localLoad();render();let saved;try{saved=JSON.parse(localStorage.getItem(configKey)||"null")}catch{}if(saved)connect(saved);setInterval(()=>{let n=new Date();if(iso(n)!==iso(selected)){selected=new Date(n.getFullYear(),n.getMonth(),n.getDate());year=selected.getFullYear();month=selected.getMonth();render()}checkReminders();if(client&&user&&Date.now()-lastAutoSync>=5000){lastAutoSync=Date.now();loadRemote({quiet:true})}},10000);
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(console.warn);
