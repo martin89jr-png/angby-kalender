@@ -213,3 +213,28 @@ input, select, textarea, button {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+
+/* Definitiv korrigering för mobil: kalendern använder id="grid" och class="grid".
+   Den måste alltid behålla sju kolumner. */
+@media (max-width: 600px) {
+  #grid.grid {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    width: 100%;
+  }
+
+  #grid.grid > .day,
+  #grid.grid > span {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Endast formulärets fält staplas – aldrig kalendern. */
+  .fields {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px;
+  }
+}
