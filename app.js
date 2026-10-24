@@ -47,14 +47,10 @@ function subscribeRealtime() {
       {
         event: "*",
         schema: "public",
-        table: "calendar_tasks"
+        table: "calendar_tasks",
+        filter: "user_id=eq." + user.id
       },
-      async (payload) => {
-        const changed = payload.new || payload.old;
-
-        // Uppdatera bara för den inloggade användarens aktiviteter.
-        if (changed.user_id && changed.user_id !== user.id) return;
-
+      async () => {
         await loadRemote({ quiet: true });
       }
     )
