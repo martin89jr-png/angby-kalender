@@ -40,3 +40,8 @@ Använd aldrig `service_role`-nyckeln i webbläsaren. Den här appen ska använd
 - Uppgifter som lagts till lokalt före inloggning flyttas inte automatiskt till Supabase.
 - Påminnelser sparas som inställning men skickar inte notiser ännu.
 - PWA-skalet kan cachelagras, men inloggning och molnsynkronisering kräver internet.
+
+## Automatisk synkronisering och påminnelser
+- Appen använder Supabase Realtime för att hämta ändringar från `calendar_tasks` automatiskt. Kontrollera i Supabase att tabellen `public.calendar_tasks` är aktiverad i Realtime / `supabase_realtime` publication.
+- Klicka på **Aktivera notiser** i appen och tillåt notiser i webbläsaren.
+- Påminnelser med ljud/notis kontrolleras medan kalendern är öppen och körs i den webbläsaren/enheten. Webbläsare och mobilsystem kan pausa sidan när den är i bakgrunden eller enheten är låst. Detta är inte serverbaserade pushnotiser och garanterar inte påminnelser när appen är stängd.
