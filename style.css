@@ -82,3 +82,92 @@
     min-height: 2.5rem;
   }
 }
+
+
+/* Mobilanpassning: förhindra att formulärfält och knappar går in i varandra */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img, input, select, textarea, button {
+  max-width: 100%;
+}
+
+input, select, textarea, button {
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  body {
+    font-size: 16px;
+  }
+
+  main, .container, .app, .content, .panel, .card {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Alla formulärgrids får krympa och staplas på smala skärmar */
+  form, .task-form, .form-grid, .grid, .form-row {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .form-grid, .grid, .form-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .form-grid > *, .grid > *, .form-row > *,
+  form label, form input, form select, form textarea {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  button {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Rubrik och ny uppgift-knapp får plats bredvid varandra eller staplas */
+  .section-heading, .section-title-row, .planner-heading, .header-row {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* Korten får inte trycka utanför skärmen */
+  .card, .panel, .summary-card, .task-card, .form-card {
+    width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 420px) {
+  .form-grid, .grid, .form-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .section-heading h1, .section-title-row h1,
+  .planner-heading h1, h1 {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+  }
+
+  .section-heading button, .section-title-row button,
+  .planner-heading button, .header-row button {
+    max-width: 100%;
+  }
+}
