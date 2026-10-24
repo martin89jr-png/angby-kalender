@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id),months=["januari","februari","mars","april","maj","juni","juli","augusti","september","oktober","november","december"],days=["söndag","måndag","tisdag","onsdag","torsdag","fredag","lördag"];
-let selected=new Date(),year=selected.getFullYear(),month=selected.getMonth(),tasks=[],client=null,user=null,signupMode=false,realtimeChannel=null;
+let selected=new Date(),year=selected.getFullYear(),month=selected.getMonth(),tasks=[],client=null,user=null,signupMode=false,realtimeChannel=null,lastAutoSync=0;
 selected=new Date(selected.getFullYear(),selected.getMonth(),selected.getDate());
 const configKey="angby-supa-config",localKey="angby-local-tasks";
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -40,18 +40,21 @@ function subscribeRealtime() {
     realtimeChannel = null;
   }
 
+  const subscribedUserId = user.id;
   realtimeChannel = client
-    .channel("calendar-tasks-" + user.id)
+    .channel("calendar-tasks-" + subscribedUserId)
     .on(
       "postgres_changes",
       {
         event: "*",
         schema: "public",
-        table: "calendar_tasks",
-        filter: "user_id=eq." + user.id
+        table: "calendar_tasks"
       },
       async () => {
-        await loadRemote({ quiet: true });
+        // Re-fetch rows allowed by Supabase Row Level Security.
+        if (user && user.id === subscribedUserId) {
+          await loadRemote({ quiet: true });
+        }
       }
     )
     .subscribe((status) => {
@@ -62,7 +65,7 @@ function subscribeRealtime() {
         status === "TIMED_OUT" ||
         status === "CLOSED"
       ) {
-        setStatus("Live-synkronisering frånkopplad");
+        setStatus("Live-synk frånkopplad · automatisk kontroll aktiv");
         console.warn("Supabase Realtime-status:", status);
       }
     });
@@ -84,5 +87,5 @@ $("auth").onclick=async()=>{if(user&&client){await client.auth.signOut();user=nu
 $("signup").onclick=()=>{signupMode=!signupMode;$("loginTitle").textContent=signupMode?"Skapa konto":"Logga in";$("loginSubmit").textContent=signupMode?"Skapa konto":"Logga in";$("signup").textContent=signupMode?"Tillbaka till inloggning":"Skapa nytt konto"};
 $("loginForm").onsubmit=async e=>{e.preventDefault();let email=$("email").value,password=$("password").value;let r=signupMode?await client.auth.signUp({email,password}):await client.auth.signInWithPassword({email,password});$("loginMessage").textContent=r.error?r.error.message:(signupMode&&!r.data.session?"Kontot skapades. Kontrollera din e-post om bekräftelse krävs.":"");if(!r.error&&(!signupMode||r.data.session))$("loginDialog").close()};
 let installPrompt;$("install").onclick=async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$("install").hidden=true}};window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("install").hidden=false});
-tasks=localLoad();render();let saved;try{saved=JSON.parse(localStorage.getItem(configKey)||"null")}catch{}if(saved)connect(saved);setInterval(()=>{let n=new Date();if(iso(n)!==iso(selected)){selected=new Date(n.getFullYear(),n.getMonth(),n.getDate());year=selected.getFullYear();month=selected.getMonth();render()}checkReminders()},10000);
+tasks=localLoad();render();let saved;try{saved=JSON.parse(localStorage.getItem(configKey)||"null")}catch{}if(saved)connect(saved);setInterval(()=>{let n=new Date();if(iso(n)!==iso(selected)){selected=new Date(n.getFullYear(),n.getMonth(),n.getDate());year=selected.getFullYear();month=selected.getMonth();render()}checkReminders();if(client&&user&&Date.now()-lastAutoSync>=15000){lastAutoSync=Date.now();loadRemote({quiet:true})}},10000);
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(console.warn);
