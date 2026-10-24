@@ -171,3 +171,45 @@ input, select, textarea, button {
     max-width: 100%;
   }
 }
+
+
+/* KORRIGERING: återställ månadskalenderns sjucolumners rutnät på mobil */
+@media (max-width: 600px) {
+  .calendar,
+  .calendar-grid,
+  .calendar-days,
+  .calendar-weekdays,
+  #calendar,
+  #calendarGrid,
+  #calendar-grid,
+  .month-grid,
+  .weekdays,
+  .days-grid {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    align-items: stretch;
+  }
+
+  .calendar button,
+  .calendar-grid button,
+  .calendar-days button,
+  #calendar button,
+  #calendarGrid button,
+  #calendar-grid button,
+  .month-grid button,
+  .days-grid button {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Lägg formulärfälten i en kolumn utan att påverka kalendern */
+  form .form-grid,
+  form .grid,
+  form .form-row,
+  .task-form .form-grid,
+  .task-form .grid,
+  .task-form .form-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
