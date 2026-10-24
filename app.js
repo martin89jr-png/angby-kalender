@@ -2,6 +2,8 @@ const $=id=>document.getElementById(id),months=["januari","februari","mars","apr
 let selected=new Date(),year=selected.getFullYear(),month=selected.getMonth(),tasks=[],client=null,user=null,signupMode=false,realtimeChannel=null,lastAutoSync=0;
 selected=new Date(selected.getFullYear(),selected.getMonth(),selected.getDate());
 const configKey="angby-supa-config",localKey="angby-local-tasks";
+const categories=["Allmänt","Träning","Möte","Tävling","Privat"];
+const categoryClass=value=>({ "Träning":"cat-training","Möte":"cat-meeting","Tävling":"cat-competition","Privat":"cat-private" }[value]||"cat-general");
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const fmt=d=>`${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 const esc=s=>String(s??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -22,11 +24,39 @@ function renderDaySummary(){
   const next=arr.find(t=>!t.done&&t.time&&(iso(selected)!==today||t.time.split(":").map(Number).reduce((h,m)=>h*60+m,0)>=nowMinutes));
   if($("summaryNext"))$("summaryNext").textContent=next?(next.time+" · "+next.title):(arr.length?"Inga fler aktiviteter idag":"Inga aktiviteter planerade");
 }
-function renderCalendar(){let grid=$("grid");grid.replaceChildren();$("monthTitle").textContent=months[month][0].toUpperCase()+months[month].slice(1)+" "+year;let offset=(new Date(year,month,1).getDay()+6)%7,count=new Date(year,month+1,0).getDate();for(let i=0;i<offset;i++){let s=document.createElement("span");grid.append(s)}for(let n=1;n<=count;n++){let d=new Date(year,month,n),b=document.createElement("button");b.className="day";b.textContent=n;if(forDay(d).length)b.classList.add("has");if(iso(d)===iso(selected))b.classList.add("sel");if(iso(d)===iso(new Date()))b.classList.add("today");b.title=forDay(d).map(t=>(t.time?t.time+" ":"")+t.title+(t.done?" ✓":"")).join("\n")||"Inga uppgifter";b.onclick=()=>{selected=d;render()};grid.append(b)}}
-function renderTasks(){let box=$("tasks");box.replaceChildren();let arr=forDay(selected).sort((a,b)=>(a.time||"").localeCompare(b.time||""));if(!arr.length){box.innerHTML='<div class="empty">Inga uppgifter den här dagen.</div>';renderDaySummary();return}arr.forEach(t=>{let el=document.createElement("article");el.className="task"+(t.done?" done":"");let check=document.createElement("input");check.type="checkbox";check.checked=!!t.done;check.setAttribute("aria-label","Markera som klar");check.onchange=()=>update(t.id,{done:check.checked});let body=document.createElement("div");let strong=document.createElement("strong");strong.textContent=(t.time?t.time+" · ":"")+t.title;let meta=document.createElement("div");meta.className="meta";meta.textContent=`Viktighet: ${t.priority||"Normal"} · Påminnelse: ${t.reminder||"Ingen"}`;body.append(strong,meta);if(t.checklist?.length){let subs=document.createElement("div");subs.className="subtasks";t.checklist.forEach((x,i)=>{let lab=document.createElement("label"),cb=document.createElement("input"),sp=document.createElement("span");cb.type="checkbox";cb.checked=!!x.done;cb.onchange=()=>update(t.id,{checklist:t.checklist.map((z,j)=>j===i?{...z,done:cb.checked}:z)});sp.textContent=x.text;lab.append(cb,sp);subs.append(lab)});body.append(subs)}let actions=document.createElement("div"),edit=document.createElement("button"),del=document.createElement("button");edit.textContent="Ändra";edit.onclick=()=>fill(t);del.textContent="Ta bort";del.onclick=()=>removeTask(t);actions.append(edit,del);el.append(check,body,actions);box.append(el)});renderDaySummary()}
-function clearForm(){$("id").value="";$("name").value="";$("time").value="";$("priority").value="Normal";$("reminder").value="Ingen";$("checklist").value="";$("formTitle").textContent="Lägg till uppgift";$("message").textContent=""}
-function fill(t){$("id").value=t.id;$("name").value=t.title;$("date").value=t.date;$("time").value=t.time||"";$("priority").value=t.priority||"Normal";$("reminder").value=t.reminder||"Ingen";$("checklist").value=(t.checklist||[]).map(x=>x.text).join("\n");$("formTitle").textContent="Ändra uppgift";document.querySelector(".editor").scrollIntoView({behavior:"smooth"})}
-function buildTask(){let id=$("id").value||crypto.randomUUID(),old=tasks.find(t=>t.id===id);return {id,user_id:user?.id||null,date:$("date").value,title:$("name").value.trim(),time:$("time").value||null,priority:$("priority").value,reminder:$("reminder").value,done:old?.done||false,checklist:$("checklist").value.split("\n").map(s=>s.trim()).filter(Boolean).map(text=>({text,done:old?.checklist?.find(x=>x.text===text)?.done||false}))}}
+function renderCalendar(){
+  let grid=$("grid");
+  grid.replaceChildren();
+  $("monthTitle").textContent=months[month][0].toUpperCase()+months[month].slice(1)+" "+year;
+  let offset=(new Date(year,month,1).getDay()+6)%7,count=new Date(year,month+1,0).getDate();
+  for(let i=0;i<offset;i++){let s=document.createElement("span");grid.append(s)}
+  for(let n=1;n<=count;n++){
+    let d=new Date(year,month,n),b=document.createElement("button");
+    b.className="day";
+    let number=document.createElement("span");
+    number.className="day-number";
+    number.textContent=n;
+    b.append(number);
+    const dayTasks=forDay(d);
+    if(dayTasks.length)b.classList.add("has");
+    if(iso(d)===iso(selected))b.classList.add("sel");
+    if(iso(d)===iso(new Date()))b.classList.add("today");
+    b.title=dayTasks.map(t=>(t.time?t.time+" ":"")+t.title+" ["+(t.category||"Allmänt")+"]"+(t.done?" ✓":"")).join("\n")||"Inga uppgifter";
+    const cats=[...new Set(dayTasks.map(t=>t.category||"Allmänt"))].slice(0,4);
+    if(cats.length){
+      const dots=document.createElement("span");
+      dots.className="day-dots";
+      cats.forEach(cat=>{const dot=document.createElement("i");dot.className=categoryClass(cat);dot.setAttribute("aria-label",cat);dots.append(dot)});
+      b.append(dots);
+    }
+    b.onclick=()=>{selected=d;render()};
+    grid.append(b);
+  }
+}
+function renderTasks(){let box=$("tasks");box.replaceChildren();let arr=forDay(selected).sort((a,b)=>(a.time||"").localeCompare(b.time||""));if(!arr.length){box.innerHTML='<div class="empty">Inga uppgifter den här dagen.</div>';renderDaySummary();return}arr.forEach(t=>{let el=document.createElement("article");el.className="task"+(t.done?" done":"");let check=document.createElement("input");check.type="checkbox";check.checked=!!t.done;check.setAttribute("aria-label","Markera som klar");check.onchange=()=>update(t.id,{done:check.checked});let body=document.createElement("div");let strong=document.createElement("strong");strong.textContent=(t.time?t.time+" · ":"")+t.title;let badge=document.createElement("span");badge.className="category-badge "+categoryClass(t.category||"Allmänt");badge.textContent=t.category||"Allmänt";let meta=document.createElement("div");meta.className="meta";meta.textContent=`Viktighet: ${t.priority||"Normal"} · Påminnelse: ${t.reminder||"Ingen"}`;body.append(strong,badge,meta);if(t.checklist?.length){let subs=document.createElement("div");subs.className="subtasks";t.checklist.forEach((x,i)=>{let lab=document.createElement("label"),cb=document.createElement("input"),sp=document.createElement("span");cb.type="checkbox";cb.checked=!!x.done;cb.onchange=()=>update(t.id,{checklist:t.checklist.map((z,j)=>j===i?{...z,done:cb.checked}:z)});sp.textContent=x.text;lab.append(cb,sp);subs.append(lab)});body.append(subs)}let actions=document.createElement("div"),edit=document.createElement("button"),del=document.createElement("button");edit.textContent="Ändra";edit.onclick=()=>fill(t);del.textContent="Ta bort";del.onclick=()=>removeTask(t);actions.append(edit,del);el.append(check,body,actions);box.append(el)});renderDaySummary()}
+function clearForm(){$("id").value="";$("name").value="";$("time").value="";$("priority").value="Normal";$("reminder").value="Ingen";$("category").value="Allmänt";$("checklist").value="";$("formTitle").textContent="Lägg till uppgift";$("message").textContent=""}
+function fill(t){$("id").value=t.id;$("name").value=t.title;$("date").value=t.date;$("time").value=t.time||"";$("priority").value=t.priority||"Normal";$("reminder").value=t.reminder||"Ingen";$("category").value=t.category||"Allmänt";$("checklist").value=(t.checklist||[]).map(x=>x.text).join("\n");$("formTitle").textContent="Ändra uppgift";document.querySelector(".editor").scrollIntoView({behavior:"smooth"})}
+function buildTask(){let id=$("id").value||crypto.randomUUID(),old=tasks.find(t=>t.id===id);return {id,user_id:user?.id||null,date:$("date").value,title:$("name").value.trim(),time:$("time").value||null,priority:$("priority").value,reminder:$("reminder").value,category:$("category").value||"Allmänt",done:old?.done||false,checklist:$("checklist").value.split("\n").map(s=>s.trim()).filter(Boolean).map(text=>({text,done:old?.checklist?.find(x=>x.text===text)?.done||false}))}}
 async function saveTask(t){if(client&&user){let row={...t,user_id:user.id};let {error}=await client.from("calendar_tasks").upsert(row);if(error){$("message").textContent="Kunde inte spara online: "+error.message;return false}await loadRemote();return true}tasks=tasks.filter(x=>x.id!==t.id).concat(t);saveLocal();render();setStatus("Sparat lokalt – logga in för synk");return true}
 async function update(id,changes){let t=tasks.find(x=>x.id===id);if(!t)return;let next={...t,...changes};if(client&&user){await saveTask(next)}else{tasks=tasks.map(x=>x.id===id?next:x);saveLocal();render()}}
 async function removeTask(t){
