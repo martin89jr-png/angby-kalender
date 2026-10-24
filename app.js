@@ -31,26 +31,28 @@ async function saveTask(t){if(client&&user){let row={...t,user_id:user.id};let {
 async function update(id,changes){let t=tasks.find(x=>x.id===id);if(!t)return;let next={...t,...changes};if(client&&user){await saveTask(next)}else{tasks=tasks.map(x=>x.id===id?next:x);saveLocal();render()}}
 async function removeTask(t){
   if(!confirm(`Ta bort "${t.title}"?`)) return;
+
   if(client && user){
-    const { data, error } = await client
+    // Gör själva DELETE-anropet utan .select().
+    // .select() kan ge en tom svarlista även när DELETE-anropet inte
+    // returnerar rader, vilket tidigare kunde tolkas som att borttagningen misslyckats.
+    const { error } = await client
       .from("calendar_tasks")
       .delete()
       .eq("id", t.id)
-      .eq("user_id", user.id)
-      .select("id");
+      .eq("user_id", user.id);
+
     if(error){
-      alert("Kunde inte ta bort från databasen: " + error.message);
+      alert("Kunde inte ta bort uppgiften: " + error.message);
       console.error("Supabase delete error:", error);
       return;
     }
-    if(!data || data.length === 0){
-      alert("Uppgiften togs inte bort i databasen. Kontrollera att du är inloggad med rätt konto och att Supabase tillåter borttagning.");
-      await loadRemote();
-      return;
-    }
+
+    // Uppdatera direkt på den här enheten och hämta sedan sanningen från databasen.
     tasks = tasks.filter(x => x.id !== t.id);
     saveLocal();
     render();
+    setStatus("Borttagen · synkar…");
     await loadRemote();
   } else {
     tasks = tasks.filter(x => x.id !== t.id);
