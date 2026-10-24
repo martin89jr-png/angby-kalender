@@ -16,3 +16,19 @@
 .category-legend i{width:8px;height:8px}
 .day.sel .day-dots i{box-shadow:0 0 0 1px white}
 @media(max-width:420px){.category-legend{gap:6px 8px}.category-legend span{font-size:9px}}
+
+/* Återställd dagsöversikt med sammanfattningsrutor */
+.day-summary{background:linear-gradient(135deg,#641c32,#7b2943);color:#fff;border-radius:14px;padding:14px;margin:12px 0 14px;box-shadow:0 7px 18px #641c3218}
+.summary-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.summary-label,.next-label{font-size:10px;letter-spacing:1.25px;font-weight:800;color:#f0d985}
+.summary-date{font-size:11px;color:#fff9}
+.summary-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.summary-stat{background:#ffffff12;border:1px solid #ffffff1c;border-radius:10px;padding:10px 8px;display:flex;flex-direction:column;gap:3px}
+.summary-stat strong{font-size:23px;line-height:1.1;color:#f0d985}
+.summary-stat span{font-size:11px;color:#fff}
+.next-task{display:grid;gap:5px;border-top:1px solid #ffffff2b;margin-top:12px;padding-top:11px}
+.next-task strong{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+  .summary-stat{padding:9px 7px}
+  .summary-stat strong{font-size:21px}
+  .summary-stat span{font-size:10px}
+@media(max-width:820px){.summary-stat{padding:9px 7px}.summary-stat strong{font-size:21px}.summary-stat span{font-size:10px}}
